@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { faq, finishes, product, specs, story } from './config'
 import { DotField } from './components/DotField'
-import { Stage } from './components/Stage'
+import { Scene } from './components/Scene'
 
 export default function App() {
   const [finish, setFinish] = useState(finishes[0])
@@ -10,9 +10,10 @@ export default function App() {
   return (
     <>
       <Nav />
-      <main>
-        <Hero tint={finish.tint} />
-        <Story tint={finish.tint} />
+      <Scene tint={finish.tint} />
+      <main className="relative">
+        <Hero />
+        <Story />
         <Specs />
         <Finishes finish={finish} setFinish={setFinish} />
         <Order />
@@ -41,11 +42,11 @@ function Nav() {
 }
 
 /* ───────────── Hero: the 3D speaker over the dot field ───────────── */
-function Hero({ tint }: { tint: string }) {
+function Hero() {
   const words = [...product.tagline[0].split(' '), ...product.tagline[1].split(' ')]
   const firstLine = product.tagline[0].split(' ').length
   return (
-    <section className="gutter relative overflow-hidden">
+    <section id="hero" className="gutter relative overflow-hidden">
       <div className="mx-auto max-w-6xl pt-14 text-center sm:pt-20">
         <p className="rise mb-6 inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-xs text-muted">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" /> {product.name} · Pre-orders open
@@ -61,7 +62,8 @@ function Hero({ tint }: { tint: string }) {
       </div>
       <div className="relative mx-auto -mt-4 max-w-5xl">
         <DotField className="absolute inset-0 h-full opacity-80" />
-        <Stage tint={tint} follow={0.45} label={`${product.name} speaker in 3D, follows your cursor`} className="rise h-[clamp(340px,58vh,620px)]" />
+        {/* the 3D speaker (components/Scene.tsx) floats over this space */}
+        <div className="h-[clamp(300px,52vh,580px)]" role="img" aria-label={`${product.name} speaker in 3D, follows your cursor`} />
       </div>
       <div className="rise mx-auto max-w-xl pb-20 text-center" style={{ animationDelay: '500ms' }}>
         <p className="text-lg leading-relaxed text-muted text-pretty">{product.intro}</p>
@@ -77,9 +79,8 @@ function Hero({ tint }: { tint: string }) {
 }
 
 /* ───────────── Story: sticky 3D, rotates with scroll ───────────── */
-function Story({ tint }: { tint: string }) {
+function Story() {
   const wrap = useRef<HTMLDivElement>(null)
-  const spin = useRef(0)
   const [step, setStep] = useState(0)
 
   useEffect(() => {
@@ -88,7 +89,6 @@ function Story({ tint }: { tint: string }) {
       if (!el) return
       const r = el.getBoundingClientRect()
       const p = Math.min(1, Math.max(0, -r.top / (r.height - innerHeight)))
-      spin.current = -0.5 + p * Math.PI * 1.5
       setStep(Math.min(story.length - 1, Math.floor(p * story.length)))
     }
     onScroll()
@@ -120,7 +120,7 @@ function Story({ tint }: { tint: string }) {
             ))}
           </div>
         </div>
-        <Stage tint={tint} spin={spin} follow={0.15} label={`${product.name} rotating as you scroll`} className="order-1 h-[42vh] md:order-2 md:h-[70vh]" />
+        <div className="order-1 h-[30vh] md:order-2 md:h-[70vh]" role="img" aria-label={`${product.name} rotating as you scroll`} />
       </div>
     </section>
   )
@@ -130,9 +130,11 @@ function Story({ tint }: { tint: string }) {
 function Specs() {
   return (
     <section id="specs" className="gutter scroll-mt-16 border-t border-line">
-      <div className="reveal mx-auto max-w-6xl py-24">
+      <div className="reveal mx-auto grid max-w-6xl gap-10 py-28 md:grid-cols-[1fr_1.15fr]">
+        <div className="hidden md:block" aria-hidden="true" />
+        <div>
         <h2 className="duo mb-12 text-[clamp(28px,3.4vw,40px)] leading-[1.1] font-medium tracking-[-0.025em]">Specs<span>Small box, big numbers</span></h2>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line lg:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line">
           {specs.map((s) => (
             <div key={s.label} className="bg-bg p-7">
               <dt className="text-sm text-muted">{s.label}</dt>
@@ -143,6 +145,7 @@ function Specs() {
             </div>
           ))}
         </dl>
+        </div>
       </div>
     </section>
   )
@@ -199,7 +202,7 @@ function Finishes({ finish, setFinish }: { finish: (typeof finishes)[number]; se
             ))}
           </div>
         </div>
-        <Stage tint={finish.tint} follow={0.5} label={`${product.name} in ${finish.name}`} className="h-[clamp(320px,50vh,520px)] rounded-3xl bg-panel" />
+        <div className="hidden h-[clamp(320px,50vh,520px)] md:block" role="img" aria-label={`${product.name} in ${finish.name}`} />
       </div>
     </section>
   )
@@ -209,7 +212,8 @@ function Finishes({ finish, setFinish }: { finish: (typeof finishes)[number]; se
 function Order() {
   return (
     <section id="order" className="gutter scroll-mt-16 border-t border-line">
-      <div className="reveal mx-auto max-w-6xl py-28 text-center">
+      <div className="reveal mx-auto max-w-6xl py-20 text-center">
+        <div className="h-[clamp(190px,34vh,330px)]" aria-hidden="true" />
         <p className="font-mono text-xs tracking-[0.2em] text-muted uppercase">{product.name}</p>
         <h2 className="mt-5 text-[clamp(56px,11vw,150px)] leading-[0.9] font-semibold tracking-[-0.06em] tabular-nums">
           {product.price}<span className="text-accent">{product.currency}</span>
@@ -227,7 +231,7 @@ function Order() {
 function Faq() {
   const [open, setOpen] = useState(0)
   return (
-    <section className="gutter border-t border-line">
+    <section id="faq" className="gutter border-t border-line">
       <div className="reveal mx-auto grid max-w-6xl gap-10 py-24 md:grid-cols-[1fr_1.4fr]">
         <h2 className="duo text-[clamp(28px,3.4vw,40px)] leading-[1.1] font-medium tracking-[-0.025em]">Questions<span>Before you order</span></h2>
         <div>
