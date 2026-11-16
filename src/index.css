@@ -94,3 +94,6 @@ body {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .reveal.pre { opacity: 1; transform: none; }
 }
+
+/* Text stays readable when the drone flies behind it */
+main h1, main h2, main p, main dt, main dd { text-shadow: 0 0 2px var(--bg), 0 0 14px var(--bg), 0 0 28px color-mix(in srgb, var(--bg) 70%, transparent); }

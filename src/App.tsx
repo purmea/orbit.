@@ -11,7 +11,7 @@ export default function App() {
     <>
       <Nav />
       <Scene tint={finish.tint} />
-      <main className="relative">
+      <main className="relative z-10">
         <Hero />
         <Story />
         <Specs />
@@ -31,7 +31,7 @@ function Nav() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between">
         <a href="#" className="text-[17px] font-semibold tracking-[-0.03em]">{product.brand}<span className="text-accent">.</span></a>
         <nav className="flex items-center gap-1 text-sm text-muted sm:gap-5">
-          <a href="#sound" className="hidden px-2 py-1 transition hover:text-fg sm:block">Sound</a>
+          <a href="#sound" className="hidden px-2 py-1 transition hover:text-fg sm:block">Camera</a>
           <a href="#specs" className="hidden px-2 py-1 transition hover:text-fg sm:block">Specs</a>
           <a href="#finishes" className="hidden px-2 py-1 transition hover:text-fg sm:block">Finishes</a>
           <a href={product.ctaUrl} className="rounded-full bg-fg px-4 py-2 font-medium text-bg transition hover:opacity-85 active:scale-[0.97]">{product.ctaLabel}</a>
@@ -63,7 +63,7 @@ function Hero() {
       <div className="relative mx-auto -mt-4 max-w-5xl">
         <DotField className="absolute inset-0 h-full opacity-80" />
         {/* the 3D speaker (components/Scene.tsx) floats over this space */}
-        <div className="h-[clamp(300px,52vh,580px)]" role="img" aria-label={`${product.name} speaker in 3D, follows your cursor`} />
+        <div className="h-[clamp(300px,52vh,580px)]" role="img" aria-label={`${product.name} drone in 3D, follows your cursor`} />
       </div>
       <div className="rise mx-auto max-w-xl pb-20 text-center" style={{ animationDelay: '500ms' }}>
         <p className="text-lg leading-relaxed text-muted text-pretty">{product.intro}</p>
@@ -71,7 +71,7 @@ function Hero() {
           <a href={product.ctaUrl} className="rounded-full bg-fg px-6 py-3 text-[15px] font-medium text-bg transition hover:shadow-[0_10px_40px_-8px_color-mix(in_srgb,var(--accent)_70%,transparent)] active:scale-[0.97]">
             {product.ctaLabel} · {product.price} {product.currency}
           </a>
-          <a href="#sound" className="rounded-full border border-line px-6 py-3 text-[15px] font-medium transition hover:border-faint active:scale-[0.97]">See it turn ↓</a>
+          <a href="#sound" className="rounded-full border border-line px-6 py-3 text-[15px] font-medium transition hover:border-faint active:scale-[0.97]">See it fly ↓</a>
         </div>
       </div>
     </section>
@@ -133,7 +133,7 @@ function Specs() {
       <div className="reveal mx-auto grid max-w-6xl gap-10 py-28 md:grid-cols-[1fr_1.15fr]">
         <div className="hidden md:block" aria-hidden="true" />
         <div>
-        <h2 className="duo mb-12 text-[clamp(28px,3.4vw,40px)] leading-[1.1] font-medium tracking-[-0.025em]">Specs<span>Small box, big numbers</span></h2>
+        <h2 className="duo mb-12 text-[clamp(28px,3.4vw,40px)] leading-[1.1] font-medium tracking-[-0.025em]">Specs<span>Small drone, big numbers</span></h2>
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line">
           {specs.map((s) => (
             <div key={s.label} className="bg-bg p-7">
@@ -267,7 +267,7 @@ function Footer() {
   }, [theme, host])
   const themes: Theme[] = ['system', 'light', 'dark']
   return (
-    <footer className="gutter border-t border-line">
+    <footer className="gutter relative z-10 border-t border-line">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 py-10 text-sm text-muted">
         <span className="text-[17px] font-semibold tracking-[-0.03em] text-fg">{product.brand}<span className="text-accent">.</span></span>
         <div className="relative flex gap-0.5 rounded-full border border-line p-[3px]" role="group" aria-label="Theme">
@@ -276,7 +276,7 @@ function Footer() {
             <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)} className={`relative h-[26px] w-[44px] rounded-full text-xs capitalize transition-colors ${theme === t ? 'text-fg' : 'text-muted'}`}>{t === 'system' ? 'Auto' : t}</button>
           ))}
         </div>
-        <span>© {new Date().getFullYear()} {product.name}. 3D model: Boom Box, CC0, Khronos glTF Sample Assets.</span>
+        <span>© {new Date().getFullYear()} {product.name}</span>
       </div>
     </footer>
   )

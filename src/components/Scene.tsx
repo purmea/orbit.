@@ -1,50 +1,48 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Center, ContactShadows, Environment, Lightformer, useGLTF } from '@react-three/drei'
+import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
-import { product } from '../config'
+import { Drone } from './Drone'
 
 /* ─────────────────────────────────────────────────────────────
-   Choreography: where the speaker sits for each part of the page.
+   Flight path: where the drone hovers for each part of the page.
    `el` is a section id, `at` is which moment of that section:
      'center' → section centred on screen, 'start' / 'end' → its first / last screen.
    x / y are fractions of the screen (-0.5 left/bottom … 0.5 right/top),
-   rot is [x, y, z] in radians, s is a size multiplier,
-   follow is how much it leans towards the cursor, spin is a constant turn (rad/s).
+   yaw is the heading in radians (0 = nose to the right), s is a size multiplier,
+   follow is how much it leans towards the cursor, orbit makes it circle slowly.
+   The drone flies BEHIND the text: crossing a heading is intended.
    ───────────────────────────────────────────────────────────── */
-type Pose = { x: number; y: number; rot: [number, number, number]; s: number; follow: number; spin: number }
+type Pose = { x: number; y: number; yaw: number; s: number; follow: number; orbit: number }
 type Key = { el: string; at: 'center' | 'start' | 'end'; desktop: Pose; mobile: Pose }
 
-const corner: Pose = { x: 0.3, y: 0.34, rot: [0.15, 0.6, 0], s: 0.32, follow: 0.25, spin: 0.25 }
-
 const choreography: Key[] = [
-  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.2, rot: [0.06, -0.35, 0], s: 0.92, follow: 0.45, spin: 0 }, mobile: { x: 0, y: -0.1, rot: [0.06, -0.35, 0], s: 0.75, follow: 0.3, spin: 0 } },
-  { el: 'sound', at: 'start', desktop: { x: 0.22, y: -0.02, rot: [0.12, -0.7, 0], s: 1.0, follow: 0.15, spin: 0 }, mobile: { ...corner, y: 0.3, s: 0.42 } },
-  { el: 'sound', at: 'end', desktop: { x: 0.22, y: -0.02, rot: [0.18, -0.7 + Math.PI * 1.6, 0], s: 1.0, follow: 0.15, spin: 0 }, mobile: { ...corner, y: 0.3, s: 0.42, rot: [0.18, 4.4, 0] } },
-  { el: 'specs', at: 'center', desktop: { x: -0.27, y: 0.0, rot: [0.45, 5.6, -0.2], s: 0.78, follow: 0.3, spin: 0 }, mobile: { ...corner, rot: [0.4, 5.6, -0.2] } },
-  { el: 'finishes', at: 'center', desktop: { x: 0.21, y: -0.03, rot: [0.05, 6.55, 0], s: 0.95, follow: 0.5, spin: 0 }, mobile: { ...corner, rot: [0.05, 6.55, 0] } },
-  { el: 'order', at: 'center', desktop: { x: 0, y: 0.23, rot: [0.12, 6.28, 0], s: 0.58, follow: 0.25, spin: 0.45 }, mobile: { x: 0, y: 0.2, rot: [0.12, 6.28, 0], s: 0.5, follow: 0.2, spin: 0.45 } },
-  { el: 'faq', at: 'start', desktop: { ...corner, rot: [0.15, 7.2, 0] }, mobile: { ...corner, rot: [0.15, 7.2, 0] } },
+  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.1, yaw: -0.5, s: 0.7, follow: 0.3, orbit: 0 } },
+  { el: 'sound', at: 'start', desktop: { x: 0.24, y: 0.02, yaw: 2.6, s: 0.95, follow: 0.15, orbit: 0 }, mobile: { x: 0.18, y: 0.27, yaw: 2.6, s: 0.5, follow: 0.15, orbit: 0 } },
+  { el: 'sound', at: 'end', desktop: { x: -0.18, y: 0.08, yaw: 0.6, s: 0.9, follow: 0.15, orbit: 0 }, mobile: { x: -0.18, y: 0.27, yaw: 0.6, s: 0.5, follow: 0.15, orbit: 0 } },
+  { el: 'specs', at: 'center', desktop: { x: -0.27, y: -0.04, yaw: 0.9, s: 0.85, follow: 0.3, orbit: 0 }, mobile: { x: 0.2, y: 0.3, yaw: 2.2, s: 0.42, follow: 0.2, orbit: 0 } },
+  { el: 'finishes', at: 'center', desktop: { x: 0.21, y: 0.0, yaw: -0.4, s: 1.05, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.28, yaw: -0.4, s: 0.55, follow: 0.3, orbit: 0 } },
+  { el: 'order', at: 'center', desktop: { x: 0, y: 0.2, yaw: -0.3, s: 0.75, follow: 0.25, orbit: 0.35 }, mobile: { x: 0, y: 0.22, yaw: -0.3, s: 0.55, follow: 0.2, orbit: 0.35 } },
+  { el: 'faq', at: 'start', desktop: { x: 0.3, y: 0.3, yaw: 2.4, s: 0.45, follow: 0.25, orbit: 0.2 }, mobile: { x: 0.28, y: 0.34, yaw: 2.4, s: 0.32, follow: 0.2, orbit: 0.2 } },
 ]
 
 const smooth = (t: number) => t * t * (3 - 2 * t)
 const lerp = THREE.MathUtils.lerp
 
 /** Reads the page layout and returns the pose for the current scroll position. */
-function useChoreography() {
+function useFlightPath() {
   const anchors = useRef<number[]>([])
-  const measure = () => {
-    const vh = innerHeight
-    anchors.current = choreography.map((k) => {
-      const el = document.getElementById(k.el)
-      if (!el) return 0
-      const top = el.getBoundingClientRect().top + scrollY, h = el.offsetHeight
-      return k.at === 'start' ? Math.max(0, top - vh * 0.15) : k.at === 'end' ? top + h - vh : top + h / 2 - vh / 2
-    })
-    // keep the list increasing even if sections are short
-    for (let i = 1; i < anchors.current.length; i++) anchors.current[i] = Math.max(anchors.current[i], anchors.current[i - 1] + 1)
-  }
   useEffect(() => {
+    const measure = () => {
+      const vh = innerHeight
+      anchors.current = choreography.map((k) => {
+        const el = document.getElementById(k.el)
+        if (!el) return 0
+        const top = el.getBoundingClientRect().top + scrollY, h = el.offsetHeight
+        return k.at === 'start' ? Math.max(0, top - vh * 0.15) : k.at === 'end' ? top + h - vh : top + h / 2 - vh / 2
+      })
+      for (let i = 1; i < anchors.current.length; i++) anchors.current[i] = Math.max(anchors.current[i], anchors.current[i - 1] + 1)
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(document.body)
@@ -60,105 +58,86 @@ function useChoreography() {
       if (y <= a[i + 1]) {
         const t = smooth((y - a[i]) / (a[i + 1] - a[i]))
         const p = pose(i), q = pose(i + 1)
-        return {
-          x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), s: lerp(p.s, q.s, t),
-          follow: lerp(p.follow, q.follow, t), spin: lerp(p.spin, q.spin, t),
-          rot: [lerp(p.rot[0], q.rot[0], t), lerp(p.rot[1], q.rot[1], t), lerp(p.rot[2], q.rot[2], t)],
-        }
+        return { x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), yaw: lerp(p.yaw, q.yaw, t), s: lerp(p.s, q.s, t), follow: lerp(p.follow, q.follow, t), orbit: lerp(p.orbit, q.orbit, t) }
       }
     }
     return pose(a.length - 1)
   }
 }
 
-function Speaker({ tint }: { tint: string }) {
-  const { scene } = useGLTF(product.modelUrl)
-  const outer = useRef<THREE.Group>(null) // position + size (shadow travels with it)
-  const inner = useRef<THREE.Group>(null) // rotation
+/** Moves the drone like a real quadcopter: it banks into the direction it travels and hovers with a light bob. */
+function Flight({ color }: { color: string }) {
+  const pos = useRef<THREE.Group>(null) // position + size
+  const body = useRef<THREE.Group>(null) // heading, bank and pitch
   const viewport = useThree((s) => s.viewport)
   const size = useThree((s) => s.size)
-  const poseAt = useChoreography()
-  const spinAngle = useRef(0)
+  const poseAt = useFlightPath()
+  const vel = useRef(new THREE.Vector2())
+  const orbitAngle = useRef(0)
   const intro = useRef(0)
   const reduce = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, [])
 
-  const model = useMemo(() => {
-    const s = scene.clone(true)
-    s.traverse((o) => {
-      const mesh = o as THREE.Mesh
-      if (mesh.isMesh) { const m = (mesh.material as THREE.MeshStandardMaterial).clone(); m.envMapIntensity = 1.2; mesh.material = m }
-    })
-    const box = new THREE.Box3().setFromObject(s)
-    s.scale.setScalar(2.6 / box.getSize(new THREE.Vector3()).length())
-    return s
-  }, [scene])
-  const materials = useMemo(() => {
-    const list: THREE.MeshStandardMaterial[] = []
-    model.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial; if (m) list.push(m) })
-    return list
-  }, [model])
-  const target = useMemo(() => new THREE.Color(tint), [tint])
-
   useFrame((state, dt) => {
-    const o = outer.current, g = inner.current
-    if (!o || !g) return
-    const k = 1 - Math.pow(0.0005, dt) // smoothing, frame-rate independent
-    const mobile = size.width < 768
-    const p = poseAt(mobile)
+    const o = pos.current, b = body.current
+    if (!o || !b) return
+    dt = Math.min(dt, 0.05)
+    const p = poseAt(size.width < 768)
     const t = state.clock.elapsedTime
 
-    // entrance: drops in and turns into place
-    intro.current = reduce ? 1 : Math.min(1, intro.current + dt / 1.6)
+    intro.current = reduce ? 1 : Math.min(1, intro.current + dt / 2)
     const e = 1 - Math.pow(1 - intro.current, 3)
+    orbitAngle.current += reduce ? 0 : p.orbit * dt
 
-    spinAngle.current += reduce ? 0 : p.spin * dt
+    // target position on screen (+ take-off from below during the intro, + hover bob)
+    const tx = p.x * viewport.width + Math.sin(orbitAngle.current) * p.orbit * 1.2
+    const ty = p.y * viewport.height - (1 - e) * 2.2 + (reduce ? 0 : Math.sin(t * 1.6) * 0.05 + Math.sin(t * 0.7) * 0.03)
+    const k = 1 - Math.pow(0.004, dt)
+    const nx = lerp(o.position.x, tx, k), ny = lerp(o.position.y, ty, k)
+    vel.current.lerp(new THREE.Vector2((nx - o.position.x) / dt, (ny - o.position.y) / dt), 1 - Math.pow(0.01, dt))
+    o.position.set(nx, ny, 0)
+    const sc = p.s * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.2)
+    o.scale.setScalar(lerp(o.scale.x, sc, k))
+
+    // attitude: bank (roll) against horizontal speed, nose dips when climbing fast, lean to the cursor
+    const vx = vel.current.x, vy = vel.current.y
     const px = state.pointer.x, py = state.pointer.y
-
-    o.position.x = lerp(o.position.x, p.x * viewport.width, k * 0.5)
-    o.position.y = lerp(o.position.y, p.y * viewport.height + (1 - e) * 1.2 + Math.sin(t * 1.1) * 0.04, k * 0.5)
-    const sc = p.s * (0.6 + 0.4 * e) * Math.min(1, viewport.width / 4.2 + 0.25)
-    o.scale.setScalar(lerp(o.scale.x, sc, k * 0.5))
-
-    g.rotation.x = lerp(g.rotation.x, p.rot[0] - py * p.follow * 0.5, k * 0.5)
-    g.rotation.y = lerp(g.rotation.y, p.rot[1] + spinAngle.current + px * p.follow + (1 - e) * -1.6, k * 0.5)
-    g.rotation.z = lerp(g.rotation.z, p.rot[2], k * 0.5)
-
-    const beat = 0.75 + 0.5 * Math.max(0, Math.sin(t * 7.5)) ** 6
-    materials.forEach((m) => { m.color.lerp(target, k * 0.2); if (m.emissiveMap) m.emissiveIntensity = beat })
+    const yaw = p.yaw + px * p.follow + orbitAngle.current * 0.6
+    b.rotation.order = 'YXZ'
+    b.rotation.y = lerp(b.rotation.y, yaw, k * 0.8)
+    b.rotation.z = lerp(b.rotation.z, THREE.MathUtils.clamp(-vx * 0.09, -0.5, 0.5) + Math.sin(t * 1.3) * 0.02, k)
+    b.rotation.x = lerp(b.rotation.x, 0.28 + THREE.MathUtils.clamp(vy * 0.05, -0.3, 0.3) - py * p.follow * 0.4, k)
   })
 
   return (
-    <group ref={outer} position={[0, 2, 0]} scale={0.6}>
-      <group ref={inner}><Center><primitive object={model} /></Center></group>
-      <ContactShadows position={[0, -1.05, 0]} opacity={0.3} scale={4} blur={2.8} far={2} />
+    <group ref={pos} position={[0, -3, 0]}>
+      <group ref={body}><Drone color={color} /></group>
     </group>
   )
 }
-useGLTF.preload(product.modelUrl)
 
-/** One fixed 3D layer for the whole page. It never blocks clicks; pointer moves come from the page. */
+/** One fixed 3D layer behind the page content. It never blocks clicks; pointer moves come from the page. */
 export function Scene({ tint }: { tint: string }) {
   const webgl = useMemo(() => {
     try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { return false }
   }, [])
   if (!webgl) return null
   return (
-    <div className="pointer-events-none fixed inset-0 z-20" aria-hidden="true">
+    <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
       <Canvas
         dpr={[1, 2]}
-        camera={{ position: [0, 0.1, 6], fov: 32 }}
+        camera={{ position: [0, 0.6, 6], fov: 32 }}
         gl={{ antialias: true, alpha: true }}
         eventSource={document.body}
         eventPrefix="client"
       >
-        <ambientLight intensity={0.35} />
-        <directionalLight position={[3, 4, 3]} intensity={1.4} />
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[3, 5, 4]} intensity={1.6} />
         <Suspense fallback={null}>
-          <Speaker tint={tint} />
+          <Flight color={tint} />
           <Environment resolution={256}>
-            <Lightformer form="rect" intensity={2.2} position={[0, 4, 1]} scale={[8, 2, 1]} rotation-x={Math.PI / 2} />
-            <Lightformer form="rect" intensity={1.4} position={[-4, 1, 1]} scale={[2, 6, 1]} rotation-y={Math.PI / 2} />
-            <Lightformer form="rect" intensity={1.4} position={[4, 1, 1]} scale={[2, 6, 1]} rotation-y={-Math.PI / 2} />
+            <Lightformer form="rect" intensity={2.4} position={[0, 4, 1]} scale={[8, 2, 1]} rotation-x={Math.PI / 2} />
+            <Lightformer form="rect" intensity={1.5} position={[-4, 1, 1]} scale={[2, 6, 1]} rotation-y={Math.PI / 2} />
+            <Lightformer form="rect" intensity={1.5} position={[4, 1, 1]} scale={[2, 6, 1]} rotation-y={-Math.PI / 2} />
             <Lightformer form="ring" color="#5b9cff" intensity={3} position={[0, 0.5, -4]} scale={3} />
           </Environment>
         </Suspense>

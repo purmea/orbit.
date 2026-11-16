@@ -1,6 +1,6 @@
-# Orbit — 3D product launch template
+# Orbit — 3D drone launch template
 
-A launch page with a real-time 3D product: it follows the cursor, rotates as you scroll and changes finish live.
+A launch page with a real-time 3D drone that flies down the page behind the text: propellers spin, it banks into turns, follows the cursor and changes finish live.
 Vite + React + TypeScript + Tailwind CSS + React Three Fiber.
 
 ## Run
@@ -13,10 +13,10 @@ npm run dev
 ## Make it yours
 
 - Texts, price, specs, finishes and FAQ: `src/config.ts`
-- 3D model: put your `.glb` in `public/models/` and change `modelUrl` in `src/config.ts`
-- Heavy model? Shrink it: `node scripts/optimize-model.mjs input.glb public/models/output.glb`
+- Flight path down the page: the `choreography` table in `src/components/Scene.tsx`
+- The drone itself (built from shapes, no model file): `src/components/Drone.tsx`
+- Want your own model instead? Load a `.glb` with `useGLTF` from `@react-three/drei`; shrink it first with `node scripts/optimize-model.mjs input.glb public/models/output.glb`
 
-## 3D model credit
+## Credits
 
-"Boom Box" from the Khronos glTF Sample Assets, released under CC0 1.0 (public domain).
-See `public/models/BOOMBOX-LICENSE.md`.
+The drone is modelled in code for this template. No third-party 3D assets.

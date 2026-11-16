@@ -1,56 +1,55 @@
 // ─────────────────────────────────────────────────────────────
 //  Orbit — edit your product here. Texts, price, specs, finishes.
-//  The 3D model lives in public/models/. To use your own, export a
-//  .glb from Blender (or any CC0 model) and change `modelUrl`.
+//  The 3D drone is built in code (src/components/Drone.tsx),
+//  and its flight path down the page lives in src/components/Scene.tsx.
 // ─────────────────────────────────────────────────────────────
 
 export const product = {
   brand: 'orbit',
   name: 'Orbit One',
-  tagline: ['Sound you', 'can hold.'],
-  intro: 'A portable speaker with 360° sound, a 40-hour battery and a screen that moves with your music.',
-  price: 149,
+  tagline: ['Fly it once.', 'Film forever.'],
+  intro: 'A 249 g camera drone with a 4K stabilised camera, 34 minutes of flight and obstacle sensing in every direction.',
+  price: 649,
   currency: '€',
   ctaLabel: 'Pre-order',
   ctaUrl: '#order', // link this to your checkout
-  modelUrl: './models/boombox.glb',
 }
 
 export const story = [
   {
-    eyebrow: 'Sound',
-    title: ['360° sound.', 'Every seat is the best seat.'],
-    body: 'Three front drivers and two side grilles push sound in every direction, so the room sounds the same wherever you stand.',
+    eyebrow: 'Camera',
+    title: ['4K at 60 fps.', 'Smooth as a dolly shot.'],
+    body: 'A three-axis gimbal holds the horizon steady through wind and fast turns, so every clip looks planned.',
   },
   {
-    eyebrow: 'Screen',
-    title: ['A screen that', 'moves with the beat.'],
-    body: 'The glowing panel pulses with your music and shows the track, the volume and the battery at a glance.',
+    eyebrow: 'Flight',
+    title: ['34 minutes.', 'One battery.'],
+    body: 'Long enough to find the shot, frame it and fly it twice. A spare battery swaps in under ten seconds.',
   },
   {
-    eyebrow: 'Battery',
-    title: ['40 hours.', 'One charge.'],
-    body: 'Play from Friday night to Sunday afternoon. Fifteen minutes of USB-C charging gives you four more hours.',
+    eyebrow: 'Safety',
+    title: ['Sees in every', 'direction.'],
+    body: 'Six sensors map the space around it and steer around trees, walls and people on their own.',
   },
 ]
 
-export const specs = [
-  { value: 40, unit: 'h', label: 'Battery life' },
-  { value: 360, unit: '°', label: 'Sound field' },
-  { value: 1.2, unit: 'kg', label: 'Weight', decimals: 1 },
-  { value: 5.4, unit: '', label: 'Bluetooth', decimals: 1 },
+export const specs: { value: number; unit: string; label: string; decimals?: number }[] = [
+  { value: 249, unit: 'g', label: 'Take-off weight' },
+  { value: 34, unit: 'min', label: 'Flight time' },
+  { value: 12, unit: 'km', label: 'Video range' },
+  { value: 4, unit: 'K', label: 'Camera, 60 fps' },
 ]
 
-/** Finishes tint the 3D model in real time. `tint` multiplies the model colours. */
+/** Finishes recolour the drone's shell in real time. */
 export const finishes = [
-  { id: 'graphite', name: 'Graphite', tint: '#ffffff', swatch: '#1a1a1a' },
-  { id: 'signal', name: 'Signal Blue', tint: '#8fb2ff', swatch: '#2f5fd9' },
-  { id: 'ember', name: 'Ember', tint: '#ffb48a', swatch: '#b8542a' },
+  { id: 'graphite', name: 'Graphite', tint: '#26282c', swatch: '#1a1a1a' },
+  { id: 'arctic', name: 'Arctic', tint: '#e8ebee', swatch: '#e8ebee' },
+  { id: 'signal', name: 'Signal Blue', tint: '#2f5fd9', swatch: '#2f5fd9' },
 ]
 
 export const faq = [
+  { q: 'Do I need a licence to fly it?', a: 'Under 250 g it falls in the lightest category in most countries. Check your local rules before flying in public spaces.' },
   { q: 'When does it ship?', a: 'Pre-orders ship in the order they were placed, starting in March.' },
-  { q: 'Is it waterproof?', a: 'It is splash-proof (IPX5): rain and spills are fine, swimming is not.' },
-  { q: 'Can I pair two speakers?', a: 'Yes. Pair two Orbit One speakers for stereo sound from the app.' },
-  { q: 'What is in the box?', a: 'The speaker, a USB-C cable and a fabric strap.' },
+  { q: 'Can I fly it with my phone?', a: 'Yes. The app streams live video to your phone, and the controller in the box gives you longer range.' },
+  { q: 'What is in the box?', a: 'The drone, a controller, one battery, spare propellers and a USB-C cable.' },
 ]
