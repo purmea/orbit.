@@ -9,25 +9,34 @@ import { Drone } from './Drone'
    `el` is a section id, `at` is which moment of that section:
      'center' → section centred on screen, 'start' / 'end' → its first / last screen.
    x / y are fractions of the screen (-0.5 left/bottom … 0.5 right/top),
-   yaw is the heading in radians (0 = nose to the right), s is a size multiplier,
-   follow is how much it leans towards the cursor, orbit makes it circle slowly.
-   The drone flies BEHIND the text: crossing a heading is intended.
+   s is a size multiplier. The drone always stays level and keeps the same 3/4 heading;
+   each pose puts it in the empty part of its section, and it never leaves the screen.
    ───────────────────────────────────────────────────────────── */
 /** Overall drone size. Raise it for a bigger drone, lower it for a smaller one. */
 const SIZE = { desktop: 1.6, mobile: 1.3 }
 
-type Pose = { x: number; y: number; yaw: number; s: number; follow: number; orbit: number }
+/** The one heading the drone keeps everywhere (radians): camera facing the viewer, turned a touch for a 3/4 look. */
+const HEADING = -1.32
+/** How far it turns towards the cursor, at most (radians). Small, so it always reads as straight. */
+const FOLLOW = 0.08
+
+type Pose = { x: number; y: number; s: number }
 type Key = { el: string; at: 'center' | 'start' | 'end'; desktop: Pose; mobile: Pose }
 
 const choreography: Key[] = [
-  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.06, yaw: -0.5, s: 0.56, follow: 0.3, orbit: 0 } },
-  { el: 'sound', at: 'start', desktop: { x: 0.24, y: 0.02, yaw: -0.4, s: 0.95, follow: 0.15, orbit: 0 }, mobile: { x: 0, y: 0.13, yaw: -0.4, s: 0.58, follow: 0.15, orbit: 0 } },
-  // a full turn on itself while the three story texts scroll by
-  { el: 'sound', at: 'end', desktop: { x: -0.18, y: 0.08, yaw: -0.4 + Math.PI * 2, s: 0.9, follow: 0.15, orbit: 0 }, mobile: { x: 0, y: 0.13, yaw: -0.4 + Math.PI * 2, s: 0.58, follow: 0.15, orbit: 0 } },
-  { el: 'specs', at: 'center', desktop: { x: -0.16, y: -0.04, yaw: 6.9, s: 0.8, follow: 0.3, orbit: 0 }, mobile: { x: 0, y: 0.04, yaw: 6.9, s: 0.52, follow: 0.2, orbit: 0 } },
-  { el: 'finishes', at: 'center', desktop: { x: 0.19, y: 0.0, yaw: 5.9, s: 0.9, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.2, yaw: 5.9, s: 0.5, follow: 0.3, orbit: 0 } },
-  { el: 'order', at: 'center', desktop: { x: 0, y: 0.2, yaw: 5.98, s: 0.75, follow: 0.25, orbit: 0.35 }, mobile: { x: 0, y: 0.22, yaw: 5.98, s: 0.5, follow: 0.2, orbit: 0.35 } },
-  { el: 'faq', at: 'start', desktop: { x: 0.3, y: 0.3, yaw: 8.7, s: 0.45, follow: 0.25, orbit: 0.2 }, mobile: { x: 0, y: 0.32, yaw: 8.7, s: 0.36, follow: 0.2, orbit: 0.2 } },
+  // hero: centred, between the title and the text
+  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.04, s: 1 }, mobile: { x: 0, y: -0.05, s: 0.56 } },
+  // story: text on the left, so the drone holds the right side
+  { el: 'sound', at: 'start', desktop: { x: 0.2, y: 0.02, s: 0.82 }, mobile: { x: 0, y: 0.17, s: 0.56 } },
+  { el: 'sound', at: 'end', desktop: { x: 0.2, y: 0.02, s: 0.82 }, mobile: { x: 0, y: 0.17, s: 0.56 } },
+  // specs: numbers on the right, drone on the left
+  { el: 'specs', at: 'center', desktop: { x: -0.25, y: -0.03, s: 0.62 }, mobile: { x: 0, y: -0.39, s: 0.46 } },
+  // finishes: colour list on the left, drone on the right
+  { el: 'finishes', at: 'center', desktop: { x: 0.25, y: 0, s: 0.64 }, mobile: { x: 0, y: -0.36, s: 0.48 } },
+  // order: price in the middle, drone above it
+  { el: 'order', at: 'center', desktop: { x: 0, y: 0.22, s: 0.72 }, mobile: { x: 0, y: 0.23, s: 0.5 } },
+  // faq: questions on the right, drone under the heading on the left
+  { el: 'faq', at: 'start', desktop: { x: -0.27, y: -0.14, s: 0.5 }, mobile: { x: 0.2, y: 0.33, s: 0.3 } },
 ]
 
 const smooth = (t: number) => t * t * (3 - 2 * t)
@@ -62,28 +71,24 @@ function useFlightPath() {
       if (y <= a[i + 1]) {
         const t = smooth((y - a[i]) / (a[i + 1] - a[i]))
         const p = pose(i), q = pose(i + 1)
-        return { x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), yaw: lerp(p.yaw, q.yaw, t), s: lerp(p.s, q.s, t), follow: lerp(p.follow, q.follow, t), orbit: lerp(p.orbit, q.orbit, t) }
+        return { x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), s: lerp(p.s, q.s, t) }
       }
     }
     return pose(a.length - 1)
   }
 }
 
-/** Shortest signed difference between two angles. */
-const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
-
 /**
- * Moves the drone like a real quadcopter: a slightly bouncy spring pulls it to each pose,
- * the nose turns into the direction of travel, it banks with acceleration and traces a
- * small figure-8 while hovering.
+ * Moves the drone between poses with a critically damped spring (no overshoot), a gentle
+ * hover bob, and a fixed level attitude: no banking, no spinning, same heading all along.
  */
 function Flight({ color }: { color: string }) {
   const pos = useRef<THREE.Group>(null) // position + size
-  const body = useRef<THREE.Group>(null) // heading, bank and pitch
+  const body = useRef<THREE.Group>(null) // heading (fixed) and a level attitude
   const viewport = useThree((s) => s.viewport)
   const size = useThree((s) => s.size)
   const poseAt = useFlightPath()
-  const st = useRef({ x: 0, y: -2.6, vx: 0, vy: 0, ax: 0, ay: 0, yaw: -0.5, orbit: 0, born: -1 })
+  const st = useRef({ x: 0, y: -2.6, vx: 0, vy: 0, yaw: HEADING, born: -1 })
   const reduce = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, [])
 
   useFrame((state, dt) => {
@@ -95,47 +100,35 @@ function Flight({ color }: { color: string }) {
     const t = state.clock.elapsedTime
     if (s.born < 0) s.born = t
     const intro = reduce ? 1 : Math.min(1, (t - s.born) / 2.2)
-    s.orbit += reduce ? 0 : p.orbit * dt
 
-    // target: pose + slow orbit + figure-8 hover
-    const hover = reduce ? 0 : 1
-    const tx = p.x * viewport.width + Math.sin(s.orbit) * p.orbit * (mobile ? 0.2 : 1.2) + Math.sin(t * 0.8) * (mobile ? 0.025 : 0.07) * hover
-    const ty = p.y * viewport.height + Math.sin(t * 1.6) * 0.045 * hover
-
-    // spring (underdamped: a hint of overshoot, like a real drone braking)
-    const K = 22, C = 2 * 0.72 * Math.sqrt(K)
-    let rest = Math.min(dt, 0.1)
-    while (rest > 0) {
-      const h = Math.min(rest, 1 / 120); rest -= h
-      s.ax = (tx - s.x) * K - s.vx * C
-      s.ay = (ty - s.y) * K - s.vy * C
-      s.vx += s.ax * h; s.vy += s.ay * h
-      s.x += s.vx * h; s.y += s.vy * h
-    }
-    o.position.set(s.x, s.y, 0)
+    // size first, so the position can keep the whole drone on screen
     const e = 1 - Math.pow(1 - intro, 3)
     const sc = p.s * (mobile ? SIZE.mobile : SIZE.desktop) * (0.7 + 0.3 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
     o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, sc, 1 - Math.pow(0.002, dt)))
+    const halfW = o.scale.x * 1.55, halfH = o.scale.x * 0.6 // drone half-extent with its propellers
+    const maxX = Math.max(0, viewport.width / 2 - halfW - 0.08), maxY = Math.max(0, viewport.height / 2 - halfH - 0.08)
 
-    // heading: pose heading, turned towards the travel direction when moving sideways fast
-    const px = state.pointer.x, py = state.pointer.y
-    let yawT = p.yaw + px * p.follow + s.orbit * 0.6
-    const side = THREE.MathUtils.clamp((Math.abs(s.vx) - 0.35) / 1.6, 0, 0.55)
-    if (side > 0) {
-      const travel = s.vx > 0 ? 0 : Math.PI
-      yawT += angleDiff(yawT, travel + Math.round((yawT - travel) / (Math.PI * 2)) * Math.PI * 2) * side
+    // target: the pose, plus a small hover bob
+    const bob = reduce ? 0 : 1
+    const tx = THREE.MathUtils.clamp(p.x * viewport.width + Math.sin(t * 0.7) * 0.03 * bob, -maxX, maxX)
+    const ty = THREE.MathUtils.clamp(p.y * viewport.height + Math.sin(t * 1.4) * 0.04 * bob, -maxY, maxY)
+
+    // critically damped spring: glides to each spot and stops without overshooting
+    const K = 18, C = 2 * Math.sqrt(K)
+    let rest = Math.min(dt, 0.1)
+    while (rest > 0) {
+      const h = Math.min(rest, 1 / 120); rest -= h
+      s.vx += ((tx - s.x) * K - s.vx * C) * h
+      s.vy += ((ty - s.y) * K - s.vy * C) * h
+      s.x += s.vx * h; s.y += s.vy * h
     }
-    s.yaw += (yawT - s.yaw) * (1 - Math.pow(0.02, dt))
+    o.position.set(s.x, s.y, 0)
 
-    // attitude: bank with sideways acceleration and speed, nose dips when it speeds up
-    const speed = Math.hypot(s.vx, s.vy)
-    const roll = THREE.MathUtils.clamp(-s.vx * 0.07 - s.ax * 0.012, -0.55, 0.55) + Math.sin(t * 1.3) * 0.02 * hover
-    const pitch = 0.26 + THREE.MathUtils.clamp(speed * 0.05 - s.vy * 0.03, -0.25, 0.3) - py * p.follow * 0.4
-    const k = 1 - Math.pow(0.004, dt)
+    // level and straight: fixed heading (a hint of cursor follow), no roll, a constant slight tilt to show the top
+    const yawT = HEADING + THREE.MathUtils.clamp(state.pointer.x, -1, 1) * FOLLOW
+    s.yaw += (yawT - s.yaw) * (1 - Math.pow(0.05, dt))
     b.rotation.order = 'YXZ'
-    b.rotation.y = s.yaw
-    b.rotation.z += (roll - b.rotation.z) * k
-    b.rotation.x += (pitch - b.rotation.x) * k
+    b.rotation.set(0.12, s.yaw, 0)
   })
 
   return (
