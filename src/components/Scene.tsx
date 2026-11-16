@@ -80,12 +80,13 @@ function Flight({ color }: { color: string }) {
   useFrame((state, dt) => {
     const o = pos.current, b = body.current
     if (!o || !b) return
-    dt = Math.min(dt, 0.05)
+    const step = Math.min(dt, 0.05) // for speed estimates only
     const p = poseAt(size.width < 768)
     const t = state.clock.elapsedTime
 
-    intro.current = reduce ? 1 : Math.min(1, intro.current + dt / 2)
-    const e = 1 - Math.pow(1 - intro.current, 3)
+    if (intro.current === 0) intro.current = t || 0.0001 // remember when the drone appeared
+    const introT = reduce ? 1 : Math.min(1, (t - intro.current) / 2)
+    const e = 1 - Math.pow(1 - introT, 3)
     orbitAngle.current += reduce ? 0 : p.orbit * dt
 
     // target position on screen (+ take-off from below during the intro, + hover bob)
@@ -93,9 +94,9 @@ function Flight({ color }: { color: string }) {
     const ty = p.y * viewport.height - (1 - e) * 2.2 + (reduce ? 0 : Math.sin(t * 1.6) * 0.05 + Math.sin(t * 0.7) * 0.03)
     const k = 1 - Math.pow(0.004, dt)
     const nx = lerp(o.position.x, tx, k), ny = lerp(o.position.y, ty, k)
-    vel.current.lerp(new THREE.Vector2((nx - o.position.x) / dt, (ny - o.position.y) / dt), 1 - Math.pow(0.01, dt))
+    vel.current.lerp(new THREE.Vector2((nx - o.position.x) / step, (ny - o.position.y) / step), 1 - Math.pow(0.01, step))
     o.position.set(nx, ny, 0)
-    const sc = p.s * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.2)
+    const sc = p.s * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
     o.scale.setScalar(lerp(o.scale.x, sc, k))
 
     // attitude: bank (roll) against horizontal speed, nose dips when climbing fast, lean to the cursor
