@@ -13,15 +13,18 @@ import { Drone } from './Drone'
    follow is how much it leans towards the cursor, orbit makes it circle slowly.
    The drone flies BEHIND the text: crossing a heading is intended.
    ───────────────────────────────────────────────────────────── */
+/** Overall drone size. Raise it for a bigger drone, lower it for a smaller one. */
+const SIZE = { desktop: 1.6, mobile: 1.3 }
+
 type Pose = { x: number; y: number; yaw: number; s: number; follow: number; orbit: number }
 type Key = { el: string; at: 'center' | 'start' | 'end'; desktop: Pose; mobile: Pose }
 
 const choreography: Key[] = [
-  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.1, yaw: -0.5, s: 0.7, follow: 0.3, orbit: 0 } },
+  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.1, yaw: -0.5, s: 0.62, follow: 0.3, orbit: 0 } },
   { el: 'sound', at: 'start', desktop: { x: 0.24, y: 0.02, yaw: 2.6, s: 0.95, follow: 0.15, orbit: 0 }, mobile: { x: 0.18, y: 0.27, yaw: 2.6, s: 0.5, follow: 0.15, orbit: 0 } },
   { el: 'sound', at: 'end', desktop: { x: -0.18, y: 0.08, yaw: 0.6, s: 0.9, follow: 0.15, orbit: 0 }, mobile: { x: -0.18, y: 0.27, yaw: 0.6, s: 0.5, follow: 0.15, orbit: 0 } },
-  { el: 'specs', at: 'center', desktop: { x: -0.27, y: -0.04, yaw: 0.9, s: 0.85, follow: 0.3, orbit: 0 }, mobile: { x: 0.2, y: 0.3, yaw: 2.2, s: 0.42, follow: 0.2, orbit: 0 } },
-  { el: 'finishes', at: 'center', desktop: { x: 0.21, y: 0.0, yaw: -0.4, s: 1.05, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.28, yaw: -0.4, s: 0.55, follow: 0.3, orbit: 0 } },
+  { el: 'specs', at: 'center', desktop: { x: -0.16, y: -0.04, yaw: 0.9, s: 0.8, follow: 0.3, orbit: 0 }, mobile: { x: 0.2, y: 0.3, yaw: 2.2, s: 0.42, follow: 0.2, orbit: 0 } },
+  { el: 'finishes', at: 'center', desktop: { x: 0.19, y: 0.0, yaw: -0.4, s: 0.9, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.28, yaw: -0.4, s: 0.55, follow: 0.3, orbit: 0 } },
   { el: 'order', at: 'center', desktop: { x: 0, y: 0.2, yaw: -0.3, s: 0.75, follow: 0.25, orbit: 0.35 }, mobile: { x: 0, y: 0.22, yaw: -0.3, s: 0.55, follow: 0.2, orbit: 0.35 } },
   { el: 'faq', at: 'start', desktop: { x: 0.3, y: 0.3, yaw: 2.4, s: 0.45, follow: 0.25, orbit: 0.2 }, mobile: { x: 0.28, y: 0.34, yaw: 2.4, s: 0.32, follow: 0.2, orbit: 0.2 } },
 ]
@@ -81,7 +84,8 @@ function Flight({ color }: { color: string }) {
     const o = pos.current, b = body.current
     if (!o || !b) return
     const step = Math.min(dt, 0.05) // for speed estimates only
-    const p = poseAt(size.width < 768)
+    const mobile = size.width < 768
+    const p = poseAt(mobile)
     const t = state.clock.elapsedTime
 
     if (intro.current === 0) intro.current = t || 0.0001 // remember when the drone appeared
@@ -90,13 +94,13 @@ function Flight({ color }: { color: string }) {
     orbitAngle.current += reduce ? 0 : p.orbit * dt
 
     // target position on screen (+ take-off from below during the intro, + hover bob)
-    const tx = p.x * viewport.width + Math.sin(orbitAngle.current) * p.orbit * 1.2
+    const tx = p.x * viewport.width + Math.sin(orbitAngle.current) * p.orbit * (mobile ? 0.5 : 1.2)
     const ty = p.y * viewport.height - (1 - e) * 2.2 + (reduce ? 0 : Math.sin(t * 1.6) * 0.05 + Math.sin(t * 0.7) * 0.03)
     const k = 1 - Math.pow(0.004, dt)
     const nx = lerp(o.position.x, tx, k), ny = lerp(o.position.y, ty, k)
     vel.current.lerp(new THREE.Vector2((nx - o.position.x) / step, (ny - o.position.y) / step), 1 - Math.pow(0.01, step))
     o.position.set(nx, ny, 0)
-    const sc = p.s * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
+    const sc = p.s * (mobile ? SIZE.mobile : SIZE.desktop) * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
     o.scale.setScalar(lerp(o.scale.x, sc, k))
 
     // attitude: bank (roll) against horizontal speed, nose dips when climbing fast, lean to the cursor
