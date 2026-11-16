@@ -164,7 +164,7 @@ export function Scene({ tint }: { tint: string }) {
         <directionalLight position={[3, 5, 4]} intensity={1.6} />
         <Suspense fallback={null}>
           <Flight color={tint} />
-          <Environment resolution={256}>
+          <Environment resolution={128}>
             <Lightformer form="rect" intensity={2.4} position={[0, 4, 1]} scale={[8, 2, 1]} rotation-x={Math.PI / 2} />
             <Lightformer form="rect" intensity={1.5} position={[-4, 1, 1]} scale={[2, 6, 1]} rotation-y={Math.PI / 2} />
             <Lightformer form="rect" intensity={1.5} position={[4, 1, 1]} scale={[2, 6, 1]} rotation-y={-Math.PI / 2} />
