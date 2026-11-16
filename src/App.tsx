@@ -48,9 +48,6 @@ function Hero() {
   return (
     <section id="hero" className="gutter relative overflow-hidden">
       <div className="mx-auto max-w-6xl pt-14 text-center sm:pt-20">
-        <p className="rise mb-6 inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-xs text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" /> {product.name} · Pre-orders open
-        </p>
         <h1 className="text-[clamp(44px,8vw,104px)] leading-[0.98] font-medium tracking-[-0.045em]">
           {words.map((w, i) => (
             <span key={i}>
@@ -134,9 +131,9 @@ function Specs() {
         <div className="hidden md:block" aria-hidden="true" />
         <div>
         <h2 className="duo mb-12 text-[clamp(28px,3.4vw,40px)] leading-[1.1] font-medium tracking-[-0.025em]">Specs<span>Small drone, big numbers</span></h2>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line">
+        <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-line">
           {specs.map((s) => (
-            <div key={s.label} className="bg-bg p-7">
+            <div key={s.label} className="border-line p-7 odd:border-r [&:nth-child(-n+2)]:border-b">
               <dt className="text-sm text-muted">{s.label}</dt>
               <dd className="mt-3 text-[clamp(40px,5vw,64px)] leading-none font-medium tracking-[-0.04em] tabular-nums">
                 <CountUp value={s.value} decimals={s.decimals ?? 0} />
