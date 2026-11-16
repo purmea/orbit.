@@ -71,7 +71,8 @@ export const Drone = forwardRef<THREE.Group, { color: string }>(function Drone({
 
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime
-    props.current.forEach((p, i) => { if (p) p.rotation.y += (i % 2 ? -1 : 1) * dt * 46 })
+    // 14 rad/s: fast enough to read as spinning, slow enough not to strobe at 60 fps (46 jumped ~44° a frame)
+    props.current.forEach((p, i) => { if (p) p.rotation.y += (i % 2 ? -1 : 1) * Math.min(dt, 1 / 30) * 14 })
     shell.color.lerp(target, 1 - Math.pow(0.02, dt))
 
     const pulse = 1.8 + Math.sin(t * 3) * 0.6

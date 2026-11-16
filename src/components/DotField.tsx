@@ -27,9 +27,15 @@ export function DotField({ className = '' }: { className?: string }) {
     cv.addEventListener('pointerdown', move)
     cv.addEventListener('pointerleave', leave)
 
+    // theme colours, read once and again only when the theme changes (not every frame)
+    let fg = '', ac = ''
+    const readColors = () => { const cs = getComputedStyle(document.documentElement); fg = cs.getPropertyValue('--fg').trim(); ac = cs.getPropertyValue('--accent').trim() }
+    readColors()
+    const mo = new MutationObserver(readColors)
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style'] })
+    const mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener('change', readColors)
+
     const draw = () => {
-      const cs = getComputedStyle(document.documentElement)
-      const fg = cs.getPropertyValue('--fg').trim(), ac = cs.getPropertyValue('--accent').trim()
       ctx.clearRect(0, 0, W, H)
       m.x = m.tx < -999 ? m.tx : m.x < -999 ? m.tx : m.x + (m.tx - m.x) * 0.12
       m.y = m.ty < -999 ? m.ty : m.y < -999 ? m.ty : m.y + (m.ty - m.y) * 0.12
@@ -64,7 +70,7 @@ export function DotField({ className = '' }: { className?: string }) {
     if (reduce) { t = 1.3; draw() } else raf = requestAnimationFrame(loop)
 
     return () => {
-      cancelAnimationFrame(raf); ro.disconnect(); io.disconnect()
+      cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); mo.disconnect(); mq.removeEventListener('change', readColors)
       cv.removeEventListener('pointermove', move); cv.removeEventListener('pointerdown', move); cv.removeEventListener('pointerleave', leave)
     }
   }, [])

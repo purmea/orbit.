@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, Lightformer } from '@react-three/drei'
+import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
 import { Drone } from './Drone'
 
@@ -9,8 +9,9 @@ import { Drone } from './Drone'
    `el` is a section id, `at` is which moment of that section:
      'center' → section centred on screen, 'start' / 'end' → its first / last screen.
    x / y are fractions of the screen (-0.5 left/bottom … 0.5 right/top),
-   s is a size multiplier. The drone always stays level and keeps the same 3/4 heading;
-   each pose puts it in the empty part of its section, and it never leaves the screen.
+   s is a size multiplier, turn counts full turns on itself: going from one section to the next
+   with turn +1 makes it spin once, level, while it travels. At rest it faces the viewer.
+   Each pose puts it in the empty part of its section, and it never leaves the screen.
    ───────────────────────────────────────────────────────────── */
 /** Overall drone size. Raise it for a bigger drone, lower it for a smaller one. */
 const SIZE = { desktop: 1.6, mobile: 1.3 }
@@ -20,23 +21,23 @@ const HEADING = -1.32
 /** How far it turns towards the cursor, at most (radians). Small, so it always reads as straight. */
 const FOLLOW = 0.08
 
-type Pose = { x: number; y: number; s: number }
+type Pose = { x: number; y: number; s: number; turn: number }
 type Key = { el: string; at: 'center' | 'start' | 'end'; desktop: Pose; mobile: Pose }
 
 const choreography: Key[] = [
   // hero: centred, between the title and the text
-  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.04, s: 1 }, mobile: { x: 0, y: -0.05, s: 0.56 } },
+  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.04, s: 1, turn: 0 }, mobile: { x: 0, y: -0.05, s: 0.56, turn: 0 } },
   // story: text on the left, so the drone holds the right side
-  { el: 'sound', at: 'start', desktop: { x: 0.2, y: 0.02, s: 0.82 }, mobile: { x: 0, y: 0.17, s: 0.56 } },
-  { el: 'sound', at: 'end', desktop: { x: 0.2, y: 0.02, s: 0.82 }, mobile: { x: 0, y: 0.17, s: 0.56 } },
+  { el: 'sound', at: 'start', desktop: { x: 0.2, y: 0.02, s: 0.82, turn: 1 }, mobile: { x: 0, y: 0.17, s: 0.56, turn: 1 } },
+  { el: 'sound', at: 'end', desktop: { x: 0.2, y: 0.02, s: 0.82, turn: 1 }, mobile: { x: 0, y: 0.17, s: 0.56, turn: 1 } },
   // specs: numbers on the right, drone on the left
-  { el: 'specs', at: 'center', desktop: { x: -0.25, y: -0.03, s: 0.62 }, mobile: { x: 0, y: -0.39, s: 0.46 } },
+  { el: 'specs', at: 'center', desktop: { x: -0.25, y: -0.03, s: 0.62, turn: 2 }, mobile: { x: 0, y: -0.39, s: 0.46, turn: 2 } },
   // finishes: colour list on the left, drone on the right
-  { el: 'finishes', at: 'center', desktop: { x: 0.25, y: 0, s: 0.64 }, mobile: { x: 0, y: -0.36, s: 0.48 } },
+  { el: 'finishes', at: 'center', desktop: { x: 0.25, y: 0, s: 0.64, turn: 3 }, mobile: { x: 0, y: -0.36, s: 0.48, turn: 3 } },
   // order: price in the middle, drone above it
-  { el: 'order', at: 'center', desktop: { x: 0, y: 0.22, s: 0.72 }, mobile: { x: 0, y: 0.23, s: 0.5 } },
+  { el: 'order', at: 'center', desktop: { x: 0, y: 0.22, s: 0.72, turn: 4 }, mobile: { x: 0, y: 0.23, s: 0.5, turn: 4 } },
   // faq: questions on the right, drone under the heading on the left
-  { el: 'faq', at: 'start', desktop: { x: -0.27, y: -0.14, s: 0.5 }, mobile: { x: 0.2, y: 0.33, s: 0.3 } },
+  { el: 'faq', at: 'start', desktop: { x: -0.27, y: -0.14, s: 0.5, turn: 5 }, mobile: { x: 0.2, y: 0.33, s: 0.3, turn: 5 } },
 ]
 
 const smooth = (t: number) => t * t * (3 - 2 * t)
@@ -71,7 +72,7 @@ function useFlightPath() {
       if (y <= a[i + 1]) {
         const t = smooth((y - a[i]) / (a[i + 1] - a[i]))
         const p = pose(i), q = pose(i + 1)
-        return { x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), s: lerp(p.s, q.s, t) }
+        return { x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t), s: lerp(p.s, q.s, t), turn: lerp(p.turn, q.turn, t) }
       }
     }
     return pose(a.length - 1)
@@ -124,9 +125,11 @@ function Flight({ color }: { color: string }) {
     }
     o.position.set(s.x, s.y, 0)
 
-    // level and straight: fixed heading (a hint of cursor follow), no roll, a constant slight tilt to show the top
-    const yawT = HEADING + THREE.MathUtils.clamp(state.pointer.x, -1, 1) * FOLLOW
-    s.yaw += (yawT - s.yaw) * (1 - Math.pow(0.05, dt))
+    // level, but alive: one full turn per section change (scroll-linked), a slow idle sway at rest,
+    // a hint of cursor follow. Never any roll; a constant small tilt shows the top.
+    const sway = reduce ? 0 : Math.sin(t * 0.45) * 0.32
+    const yawT = HEADING + p.turn * Math.PI * 2 + sway + THREE.MathUtils.clamp(state.pointer.x, -1, 1) * FOLLOW
+    s.yaw += (yawT - s.yaw) * (1 - Math.pow(0.004, dt))
     b.rotation.order = 'YXZ'
     b.rotation.set(0.12, s.yaw, 0)
   })
@@ -143,16 +146,20 @@ export function Scene({ tint }: { tint: string }) {
   const webgl = useMemo(() => {
     try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { return false }
   }, [])
+  const maxDpr = Math.min(typeof devicePixelRatio === 'number' ? devicePixelRatio : 1, 2)
+  const [dpr, setDpr] = useState(maxDpr)
   if (!webgl) return null
   return (
     <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
       <Canvas
-        dpr={[1, 2]}
+        dpr={dpr}
         camera={{ position: [0, 0.6, 6], fov: 32 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         eventSource={document.body}
         eventPrefix="client"
       >
+        {/* holds 60 fps: lowers the resolution a step when frames drop, raises it back when there is headroom */}
+        <PerformanceMonitor bounds={() => [55, 60]} flipflops={4} onDecline={() => setDpr((d) => Math.max(1, d - 0.25))} onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))} />
         <ambientLight intensity={0.4} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} />
         <Suspense fallback={null}>
