@@ -20,13 +20,14 @@ type Pose = { x: number; y: number; yaw: number; s: number; follow: number; orbi
 type Key = { el: string; at: 'center' | 'start' | 'end'; desktop: Pose; mobile: Pose }
 
 const choreography: Key[] = [
-  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.1, yaw: -0.5, s: 0.62, follow: 0.3, orbit: 0 } },
-  { el: 'sound', at: 'start', desktop: { x: 0.24, y: 0.02, yaw: 2.6, s: 0.95, follow: 0.15, orbit: 0 }, mobile: { x: 0.18, y: 0.27, yaw: 2.6, s: 0.5, follow: 0.15, orbit: 0 } },
-  { el: 'sound', at: 'end', desktop: { x: -0.18, y: 0.08, yaw: 0.6, s: 0.9, follow: 0.15, orbit: 0 }, mobile: { x: -0.18, y: 0.27, yaw: 0.6, s: 0.5, follow: 0.15, orbit: 0 } },
-  { el: 'specs', at: 'center', desktop: { x: -0.16, y: -0.04, yaw: 0.9, s: 0.8, follow: 0.3, orbit: 0 }, mobile: { x: 0.2, y: 0.3, yaw: 2.2, s: 0.42, follow: 0.2, orbit: 0 } },
-  { el: 'finishes', at: 'center', desktop: { x: 0.19, y: 0.0, yaw: -0.4, s: 0.9, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.28, yaw: -0.4, s: 0.55, follow: 0.3, orbit: 0 } },
-  { el: 'order', at: 'center', desktop: { x: 0, y: 0.2, yaw: -0.3, s: 0.75, follow: 0.25, orbit: 0.35 }, mobile: { x: 0, y: 0.22, yaw: -0.3, s: 0.55, follow: 0.2, orbit: 0.35 } },
-  { el: 'faq', at: 'start', desktop: { x: 0.3, y: 0.3, yaw: 2.4, s: 0.45, follow: 0.25, orbit: 0.2 }, mobile: { x: 0.28, y: 0.34, yaw: 2.4, s: 0.32, follow: 0.2, orbit: 0.2 } },
+  { el: 'hero', at: 'start', desktop: { x: 0, y: -0.16, yaw: -0.5, s: 1.1, follow: 0.4, orbit: 0 }, mobile: { x: 0, y: -0.06, yaw: -0.5, s: 0.56, follow: 0.3, orbit: 0 } },
+  { el: 'sound', at: 'start', desktop: { x: 0.24, y: 0.02, yaw: -0.4, s: 0.95, follow: 0.15, orbit: 0 }, mobile: { x: 0, y: 0.13, yaw: -0.4, s: 0.58, follow: 0.15, orbit: 0 } },
+  // a full turn on itself while the three story texts scroll by
+  { el: 'sound', at: 'end', desktop: { x: -0.18, y: 0.08, yaw: -0.4 + Math.PI * 2, s: 0.9, follow: 0.15, orbit: 0 }, mobile: { x: 0, y: 0.13, yaw: -0.4 + Math.PI * 2, s: 0.58, follow: 0.15, orbit: 0 } },
+  { el: 'specs', at: 'center', desktop: { x: -0.16, y: -0.04, yaw: 6.9, s: 0.8, follow: 0.3, orbit: 0 }, mobile: { x: 0, y: 0.04, yaw: 6.9, s: 0.52, follow: 0.2, orbit: 0 } },
+  { el: 'finishes', at: 'center', desktop: { x: 0.19, y: 0.0, yaw: 5.9, s: 0.9, follow: 0.5, orbit: 0 }, mobile: { x: 0, y: 0.2, yaw: 5.9, s: 0.5, follow: 0.3, orbit: 0 } },
+  { el: 'order', at: 'center', desktop: { x: 0, y: 0.2, yaw: 5.98, s: 0.75, follow: 0.25, orbit: 0.35 }, mobile: { x: 0, y: 0.22, yaw: 5.98, s: 0.5, follow: 0.2, orbit: 0.35 } },
+  { el: 'faq', at: 'start', desktop: { x: 0.3, y: 0.3, yaw: 8.7, s: 0.45, follow: 0.25, orbit: 0.2 }, mobile: { x: 0, y: 0.32, yaw: 8.7, s: 0.36, follow: 0.2, orbit: 0.2 } },
 ]
 
 const smooth = (t: number) => t * t * (3 - 2 * t)
@@ -68,53 +69,77 @@ function useFlightPath() {
   }
 }
 
-/** Moves the drone like a real quadcopter: it banks into the direction it travels and hovers with a light bob. */
+/** Shortest signed difference between two angles. */
+const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
+
+/**
+ * Moves the drone like a real quadcopter: a slightly bouncy spring pulls it to each pose,
+ * the nose turns into the direction of travel, it banks with acceleration and traces a
+ * small figure-8 while hovering.
+ */
 function Flight({ color }: { color: string }) {
   const pos = useRef<THREE.Group>(null) // position + size
   const body = useRef<THREE.Group>(null) // heading, bank and pitch
   const viewport = useThree((s) => s.viewport)
   const size = useThree((s) => s.size)
   const poseAt = useFlightPath()
-  const vel = useRef(new THREE.Vector2())
-  const orbitAngle = useRef(0)
-  const intro = useRef(0)
+  const st = useRef({ x: 0, y: -2.6, vx: 0, vy: 0, ax: 0, ay: 0, yaw: -0.5, orbit: 0, born: -1 })
   const reduce = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, [])
 
   useFrame((state, dt) => {
     const o = pos.current, b = body.current
     if (!o || !b) return
-    const step = Math.min(dt, 0.05) // for speed estimates only
+    const s = st.current
     const mobile = size.width < 768
     const p = poseAt(mobile)
     const t = state.clock.elapsedTime
+    if (s.born < 0) s.born = t
+    const intro = reduce ? 1 : Math.min(1, (t - s.born) / 2.2)
+    s.orbit += reduce ? 0 : p.orbit * dt
 
-    if (intro.current === 0) intro.current = t || 0.0001 // remember when the drone appeared
-    const introT = reduce ? 1 : Math.min(1, (t - intro.current) / 2)
-    const e = 1 - Math.pow(1 - introT, 3)
-    orbitAngle.current += reduce ? 0 : p.orbit * dt
+    // target: pose + slow orbit + figure-8 hover
+    const hover = reduce ? 0 : 1
+    const tx = p.x * viewport.width + Math.sin(s.orbit) * p.orbit * (mobile ? 0.2 : 1.2) + Math.sin(t * 0.8) * (mobile ? 0.025 : 0.07) * hover
+    const ty = p.y * viewport.height + Math.sin(t * 1.6) * 0.045 * hover
 
-    // target position on screen (+ take-off from below during the intro, + hover bob)
-    const tx = p.x * viewport.width + Math.sin(orbitAngle.current) * p.orbit * (mobile ? 0.5 : 1.2)
-    const ty = p.y * viewport.height - (1 - e) * 2.2 + (reduce ? 0 : Math.sin(t * 1.6) * 0.05 + Math.sin(t * 0.7) * 0.03)
-    const k = 1 - Math.pow(0.004, dt)
-    const nx = lerp(o.position.x, tx, k), ny = lerp(o.position.y, ty, k)
-    vel.current.lerp(new THREE.Vector2((nx - o.position.x) / step, (ny - o.position.y) / step), 1 - Math.pow(0.01, step))
-    o.position.set(nx, ny, 0)
-    const sc = p.s * (mobile ? SIZE.mobile : SIZE.desktop) * (0.75 + 0.25 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
-    o.scale.setScalar(lerp(o.scale.x, sc, k))
+    // spring (underdamped: a hint of overshoot, like a real drone braking)
+    const K = 22, C = 2 * 0.72 * Math.sqrt(K)
+    let rest = Math.min(dt, 0.1)
+    while (rest > 0) {
+      const h = Math.min(rest, 1 / 120); rest -= h
+      s.ax = (tx - s.x) * K - s.vx * C
+      s.ay = (ty - s.y) * K - s.vy * C
+      s.vx += s.ax * h; s.vy += s.ay * h
+      s.x += s.vx * h; s.y += s.vy * h
+    }
+    o.position.set(s.x, s.y, 0)
+    const e = 1 - Math.pow(1 - intro, 3)
+    const sc = p.s * (mobile ? SIZE.mobile : SIZE.desktop) * (0.7 + 0.3 * e) * Math.min(1, viewport.width / 4.4 + 0.38)
+    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, sc, 1 - Math.pow(0.002, dt)))
 
-    // attitude: bank (roll) against horizontal speed, nose dips when climbing fast, lean to the cursor
-    const vx = vel.current.x, vy = vel.current.y
+    // heading: pose heading, turned towards the travel direction when moving sideways fast
     const px = state.pointer.x, py = state.pointer.y
-    const yaw = p.yaw + px * p.follow + orbitAngle.current * 0.6
+    let yawT = p.yaw + px * p.follow + s.orbit * 0.6
+    const side = THREE.MathUtils.clamp((Math.abs(s.vx) - 0.35) / 1.6, 0, 0.55)
+    if (side > 0) {
+      const travel = s.vx > 0 ? 0 : Math.PI
+      yawT += angleDiff(yawT, travel + Math.round((yawT - travel) / (Math.PI * 2)) * Math.PI * 2) * side
+    }
+    s.yaw += (yawT - s.yaw) * (1 - Math.pow(0.02, dt))
+
+    // attitude: bank with sideways acceleration and speed, nose dips when it speeds up
+    const speed = Math.hypot(s.vx, s.vy)
+    const roll = THREE.MathUtils.clamp(-s.vx * 0.07 - s.ax * 0.012, -0.55, 0.55) + Math.sin(t * 1.3) * 0.02 * hover
+    const pitch = 0.26 + THREE.MathUtils.clamp(speed * 0.05 - s.vy * 0.03, -0.25, 0.3) - py * p.follow * 0.4
+    const k = 1 - Math.pow(0.004, dt)
     b.rotation.order = 'YXZ'
-    b.rotation.y = lerp(b.rotation.y, yaw, k * 0.8)
-    b.rotation.z = lerp(b.rotation.z, THREE.MathUtils.clamp(-vx * 0.09, -0.5, 0.5) + Math.sin(t * 1.3) * 0.02, k)
-    b.rotation.x = lerp(b.rotation.x, 0.28 + THREE.MathUtils.clamp(vy * 0.05, -0.3, 0.3) - py * p.follow * 0.4, k)
+    b.rotation.y = s.yaw
+    b.rotation.z += (roll - b.rotation.z) * k
+    b.rotation.x += (pitch - b.rotation.x) * k
   })
 
   return (
-    <group ref={pos} position={[0, -3, 0]}>
+    <group ref={pos} position={[0, -2.6, 0]} scale={0.3}>
       <group ref={body}><Drone color={color} /></group>
     </group>
   )
